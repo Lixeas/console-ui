@@ -29,12 +29,17 @@
             (input)="orgFilter.set(orgSearchInput.value)"
             (keydown)="onOrgSearchKeydown($event, orgSelect)" />
         </div>
-        @for (org of filteredOrgList(); track org.id) {
-          <mat-option [value]="org.id">
+        <!-- Non-matching options stay rendered (hidden + disabled) so mat-select keeps the selected one in its trigger. -->
+        @for (org of orgList(); track org.id) {
+          <mat-option
+            [value]="org.id"
+            [disabled]="!visibleOrgIds().has(org.id)"
+            [class.context-selector__option--hidden]="!visibleOrgIds().has(org.id)">
             <mat-icon>{{ org.ownerId === auth.user()?.id ? 'person' : 'public' }}</mat-icon>
             {{ org.name }}
           </mat-option>
-        } @empty {
+        }
+        @if (filteredOrgList().length === 0) {
           <div class="context-selector__search-empty">No organization found</div>
         }
       </mat-select>

@@ -79,6 +79,20 @@ describe('ContextSelectorComponent', () => {
     expect(setOrganization).toHaveBeenCalledWith('2');
   });
 
+  it('should keep the selected organization in the trigger when the filter hides it', async () => {
+    organization.set(org('4', 'ABCD'));
+    fixture.detectChanges();
+    const trigger = fixture.nativeElement.querySelector('#orgSelect .mat-mdc-select-trigger') as HTMLElement;
+    trigger.click();
+    await fixture.whenStable();
+
+    component.orgFilter.set('zzz');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.context-selector__organization-selection')?.textContent).toContain('ABCD');
+  });
+
   it('should show the search field and only the matching options in the opened panel', async () => {
     const trigger = fixture.nativeElement.querySelector('#orgSelect .mat-mdc-select-trigger') as HTMLElement;
     trigger.click();
@@ -86,11 +100,14 @@ describe('ContextSelectorComponent', () => {
 
     const input = document.querySelector('.context-selector__search input') as HTMLInputElement;
     expect(input).toBeTruthy();
+    expect(document.activeElement).toBe(input);
     input.value = 'DF';
     input.dispatchEvent(new Event('input'));
     await fixture.whenStable();
 
-    const options = Array.from(document.querySelectorAll('mat-option')).map(o => o.textContent?.trim());
+    const options = Array.from(document.querySelectorAll('mat-option:not(.context-selector__option--hidden)')).map(o =>
+      o.textContent?.trim(),
+    );
     expect(options.length).toBe(1);
     expect(options[0]).toContain('dfgt');
   });
@@ -117,5 +134,26 @@ describe('ContextSelectorComponent', () => {
     expect(component.projectList()).toEqual([]);
     organization.set(undefined);
     expect(component.projectList()).toEqual([]);
+  });
+
+  it('should forward arrows to mat-select once, and leave Enter to it once the user navigated', () => {
+    const select = jasmine.createSpyObj<MatSelect>('MatSelect', ['close', '_handleKeydown']);
+    const arrow = new KeyboardEvent('keydown', { key: 'ArrowDown' });
+    spyOn(arrow, 'stopPropagation');
+    component.onOrgSearchKeydown(arrow, select);
+    expect(arrow.stopPropagation).toHaveBeenCalled();
+    expect(select._handleKeydown).toHaveBeenCalledOnceWith(arrow);
+
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', cancelable: true });
+    component.onOrgSearchKeydown(enter, select);
+    expect(select._handleKeydown).toHaveBeenCalledWith(enter);
+    expect(select.close).not.toHaveBeenCalled();
+    expect(setOrganization).not.toHaveBeenCalled();
+
+    // typing again goes back to "Enter picks the first match"
+    component.orgFilter.set('h');
+    component.onOrgSearchKeydown(new KeyboardEvent('keydown', { key: 'h' }), select);
+    component.onOrgSearchKeydown(new KeyboardEvent('keydown', { key: 'Enter' }), select);
+    expect(setOrganization).toHaveBeenCalledWith('2');
   });
 });

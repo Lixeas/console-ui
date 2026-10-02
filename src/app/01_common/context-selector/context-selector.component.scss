@@ -64,6 +64,10 @@
     }
   }
 
+  &__option--hidden {
+    display: none;
+  }
+
   &__search-empty {
     padding: 12px 16px;
     color: var(--mat-sys-on-surface-variant);

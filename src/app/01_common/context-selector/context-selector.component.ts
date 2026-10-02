@@ -1,4 +1,4 @@
-import { Component, computed, ElementRef, inject, input, signal, viewChild } from '@angular/core';
+import { afterNextRender, Component, computed, ElementRef, inject, Injector, input, signal, viewChild } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -19,6 +19,7 @@ export class ContextSelectorComponent {
   protected auth = inject(AuthService);
   protected stateSvc = inject(StateService);
   protected orgSvc = inject(OrganizationService);
+  private injector = inject(Injector);
 
   // Personal organizations first, then natural sort within each group:
   // case-insensitive and numbers compared by value ("org2" before "org10").
@@ -49,22 +50,41 @@ export class ContextSelectorComponent {
     return filter ? this.orgList().filter(org => org.name.toLowerCase().includes(filter)) : this.orgList();
   });
 
+  visibleOrgIds = computed(() => new Set(this.filteredOrgList().map(org => org.id)));
+
   private orgSearchInput = viewChild<ElementRef<HTMLInputElement>>('orgSearchInput');
 
   background = input<'normal' | 'inverted'>('normal');
 
+  // True once the user moved through the options with the arrow keys.
+  private orgNavigated = false;
+
   orgSelectOpened(opened: boolean) {
+    this.orgNavigated = false;
     if (opened) {
-      this.orgSearchInput()?.nativeElement.focus();
+      // The panel is attached after openedChange fires: focus once it is rendered.
+      afterNextRender(() => this.orgSearchInput()?.nativeElement.focus(), { injector: this.injector });
     } else {
       this.orgFilter.set('');
     }
   }
 
-  // Enter picks the first match; every other key stays in the input instead of
-  // triggering mat-select typeahead and selection.
+  // Arrows are handed to mat-select, which highlights the options; Enter then selects the
+  // highlighted one, or the first match when the user only typed. Every other key
+  // stays in the input instead of triggering mat-select typeahead and selection.
+  // The panel lives inside the mat-select host, so a bubbling keydown would be handled
+  // twice (arrows would move two options): forward it once and stop it here.
   onOrgSearchKeydown(event: KeyboardEvent, select: MatSelect) {
-    if (event.key === 'Enter') {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      this.orgNavigated = true;
+      event.stopPropagation();
+      select._handleKeydown(event);
+    } else if (event.key === 'Enter') {
+      event.stopPropagation();
+      if (this.orgNavigated) {
+        select._handleKeydown(event);
+        return;
+      }
       event.preventDefault();
       const first = this.filteredOrgList()[0];
       if (first) {
@@ -74,6 +94,7 @@ export class ContextSelectorComponent {
         }
       }
     } else if (event.key !== 'Escape' && event.key !== 'Tab') {
+      this.orgNavigated = false;
       event.stopPropagation();
     }
   }
