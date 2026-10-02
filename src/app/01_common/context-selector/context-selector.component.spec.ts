@@ -49,8 +49,8 @@ describe('ContextSelectorComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should list personal organizations first, then sort alphabetically, ignoring case and comparing numbers by value', () => {
-    expect(component.orgList().map(o => o.name)).toEqual(['HGTY', 'org10', 'ABCD', 'dfgt', 'org2']);
+  it('should list the main personal organization first, then the other personal ones, then the guest ones, each sorted ignoring case and comparing numbers by value', () => {
+    expect(component.orgList().map(o => o.name)).toEqual(['org10', 'HGTY', 'ABCD', 'dfgt', 'org2']);
   });
 
   it('should filter organizations by a case-insensitive substring', () => {

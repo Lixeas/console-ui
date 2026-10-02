@@ -4,6 +4,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSelect, MatSelectModule } from '@angular/material/select';
+import { Organization } from '@shared/models/data/organization';
 import { getUserOrganization } from '@shared/models/data/user';
 import { AuthService } from '@shared/services/auth.service';
 import { OrganizationService } from '@shared/services/organization.service';
@@ -21,16 +22,18 @@ export class ContextSelectorComponent {
   protected orgSvc = inject(OrganizationService);
   private injector = inject(Injector);
 
-  // Personal organizations first, then natural sort within each group:
-  // case-insensitive and numbers compared by value ("org2" before "org10").
+  // The account's main personal org (personalOrg[0]) first, then its other personal orgs,
+  // then the guest orgs. Natural sort within each group: case-insensitive and numbers
+  // compared by value ("org2" before "org10").
   orgList = computed(() => {
     const user = this.auth.user();
     if (!user) return [];
+    const mainId = user.personalOrg[0]?.id;
     const personalIds = new Set(user.personalOrg.map(org => org.id));
+    const rank = (org: Organization) => (org.id === mainId ? 0 : personalIds.has(org.id) ? 1 : 2);
     return getUserOrganization(user).sort(
       (a, b) =>
-        Number(personalIds.has(b.id)) - Number(personalIds.has(a.id)) ||
-        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
+        rank(a) - rank(b) || a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
     );
   });
 
