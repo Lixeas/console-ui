@@ -20,12 +20,27 @@ export class ContextSelectorComponent {
   protected stateSvc = inject(StateService);
   protected orgSvc = inject(OrganizationService);
 
-  // Natural sort: case-insensitive and numbers compared by value ("org2" before "org10").
+  // Personal organizations first, then natural sort within each group:
+  // case-insensitive and numbers compared by value ("org2" before "org10").
   orgList = computed(() => {
     const user = this.auth.user();
-    const orgs = user ? getUserOrganization(user) : [];
-    return orgs.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+    if (!user) return [];
+    const personalIds = new Set(user.personalOrg.map(org => org.id));
+    return getUserOrganization(user).sort(
+      (a, b) =>
+        Number(personalIds.has(b.id)) - Number(personalIds.has(a.id)) ||
+        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
+    );
   });
+
+  // "default" project first when it exists (it can be deleted), then natural sort.
+  projectList = computed(() =>
+    [...(this.stateSvc.organization()?.projects ?? [])].sort(
+      (a, b) =>
+        Number(b.name === 'default') - Number(a.name === 'default') ||
+        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
+    ),
+  );
 
   orgFilter = signal('');
 

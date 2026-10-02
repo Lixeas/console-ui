@@ -48,7 +48,7 @@
         #projectSelect
         [value]="stateSvc.project()?.id"
         (selectionChange)="projectChanged(projectSelect.value)">
-        @for (p of stateSvc.organization()?.projects; track p.id) {
+        @for (p of projectList(); track p.id) {
           <mat-option [value]="p.id">{{ p.name }}</mat-option>
         }
       </mat-select>

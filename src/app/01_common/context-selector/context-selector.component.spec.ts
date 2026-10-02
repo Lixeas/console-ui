@@ -1,4 +1,4 @@
-import { signal } from '@angular/core';
+import { signal, WritableSignal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatSelect } from '@angular/material/select';
 import { Organization } from '@shared/models/data/organization';
@@ -17,6 +17,7 @@ describe('ContextSelectorComponent', () => {
   let component: ContextSelectorComponent;
   let fixture: ComponentFixture<ContextSelectorComponent>;
   let setOrganization: jasmine.Spy;
+  let organization: WritableSignal<Organization | undefined>;
 
   beforeEach(async () => {
     const user = {
@@ -25,6 +26,7 @@ describe('ContextSelectorComponent', () => {
       guestOrg: [org('3', 'dfgt'), org('4', 'ABCD'), org('5', 'org2')],
     } as unknown as User;
     setOrganization = jasmine.createSpy('setOrganization');
+    organization = signal<Organization | undefined>(undefined);
 
     await TestBed.configureTestingModule({
       imports: [ContextSelectorComponent],
@@ -32,7 +34,7 @@ describe('ContextSelectorComponent', () => {
         { provide: AuthService, useValue: { user: signal(user) } },
         {
           provide: StateService,
-          useValue: { organization: signal(undefined), project: signal(undefined), setOrganization },
+          useValue: { organization: organization, project: signal(undefined), setOrganization },
         },
         { provide: OrganizationService, useValue: {} },
       ],
@@ -47,8 +49,8 @@ describe('ContextSelectorComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should sort organizations alphabetically, ignoring case and comparing numbers by value', () => {
-    expect(component.orgList().map(o => o.name)).toEqual(['ABCD', 'dfgt', 'HGTY', 'org2', 'org10']);
+  it('should list personal organizations first, then sort alphabetically, ignoring case and comparing numbers by value', () => {
+    expect(component.orgList().map(o => o.name)).toEqual(['HGTY', 'org10', 'ABCD', 'dfgt', 'org2']);
   });
 
   it('should filter organizations by a case-insensitive substring', () => {
@@ -56,7 +58,7 @@ describe('ContextSelectorComponent', () => {
     expect(component.filteredOrgList().map(o => o.name)).toEqual(['dfgt']);
 
     component.orgFilter.set('org');
-    expect(component.filteredOrgList().map(o => o.name)).toEqual(['org2', 'org10']);
+    expect(component.filteredOrgList().map(o => o.name)).toEqual(['org10', 'org2']);
 
     component.orgFilter.set('zzz');
     expect(component.filteredOrgList()).toEqual([]);
@@ -98,5 +100,22 @@ describe('ContextSelectorComponent', () => {
     spyOn(event, 'stopPropagation');
     component.onOrgSearchKeydown(event, jasmine.createSpyObj<MatSelect>('MatSelect', ['close']));
     expect(event.stopPropagation).toHaveBeenCalled();
+  });
+
+  it('should list the "default" project first, then the others sorted', () => {
+    const projects = ['proj10', 'zeta', 'default', 'proj2'].map(name => ({ id: name, name }));
+    organization.set({ ...org('1', 'org'), projects } as unknown as Organization);
+    expect(component.projectList().map(p => p.name)).toEqual(['default', 'proj2', 'proj10', 'zeta']);
+  });
+
+  it('should still list the projects when "default" has been deleted or the organization has no projects', () => {
+    const projects = ['zeta', 'alpha'].map(name => ({ id: name, name }));
+    organization.set({ ...org('1', 'org'), projects } as unknown as Organization);
+    expect(component.projectList().map(p => p.name)).toEqual(['alpha', 'zeta']);
+
+    organization.set({ ...org('1', 'org'), projects: undefined } as unknown as Organization);
+    expect(component.projectList()).toEqual([]);
+    organization.set(undefined);
+    expect(component.projectList()).toEqual([]);
   });
 });
