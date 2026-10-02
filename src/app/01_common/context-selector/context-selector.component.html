@@ -11,17 +11,31 @@
         id="orgSelect"
         #orgSelect
         [value]="stateSvc.organization()?.id"
+        (openedChange)="orgSelectOpened($event)"
         (selectionChange)="orgChanged(orgSelect.value)">
         <mat-select-trigger>
           <div class="context-selector__organization-selection">
             <span> {{ stateSvc.organization()?.name }} </span>
           </div>
         </mat-select-trigger>
-        @for (org of orgList(); track org.id) {
+        <div class="context-selector__search">
+          <mat-icon>search</mat-icon>
+          <input
+            #orgSearchInput
+            type="text"
+            placeholder="Search organization"
+            aria-label="Search organization"
+            [value]="orgFilter()"
+            (input)="orgFilter.set(orgSearchInput.value)"
+            (keydown)="onOrgSearchKeydown($event, orgSelect)" />
+        </div>
+        @for (org of filteredOrgList(); track org.id) {
           <mat-option [value]="org.id">
             <mat-icon>{{ org.ownerId === auth.user()?.id ? 'person' : 'public' }}</mat-icon>
             {{ org.name }}
           </mat-option>
+        } @empty {
+          <div class="context-selector__search-empty">No organization found</div>
         }
       </mat-select>
     </mat-form-field>
